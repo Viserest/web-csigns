@@ -1,0 +1,83 @@
+
+/* Theme is light */
+html {
+	--bg: white;
+	--bg-raised: #dddddd;
+	--bg-opposite: black;
+	--text: #181818;
+	--text-dim: #555555;
+	--text-opposite: white;
+	--accent: slateblue;
+}
+
+/* Theme is dark */
+html[theme="dark"] {
+	--bg: black;
+	--bg-raised: #181818;
+	--bg-opposite: white;
+	--text: #e8e8ec;
+	--text-dim: #9a9aa5;
+	--text-opposite: black;
+	--accent: slateblue;
+}
+
+body {
+	background-color: var(--bg);
+	color: var(--text);
+}
+
+h1,h2,h3,h4 {
+	text-align: center;
+}
+
+p {
+	margin: 0.2rem;
+}
+
+#links,
+#footer {
+	text-align: center;
+}
+
+#links {
+	padding-top: 1.5rem;
+}
+
+#links a {
+	display: inline-block;
+	margin: 0.25rem;
+	padding: 0.5rem 2.25rem;
+	color: var(--text);
+	text-decoration: none;
+	border-bottom: 3px solid var(--bg-raised);
+}
+
+#links a:hover {
+	color: var(--text-dim);
+	border-bottom: 3px solid var(--accent);
+	cursor: pointer;
+}
+
+#photos {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 1rem;
+}
+
+#photos img {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+#footer {
+	padding-bottom: 5rem;
+}
+
+.u-text-center { text-align: center; }
+.u-text-center * { text-align: center; }
+.u-text-center-only { text-align: center; }
+.u-text-left { text-align: left; }
+.u-text-left * { text-align: left; }
+.u-text-right { text-align: right; }
+.u-text-right * { text-align: right; }
