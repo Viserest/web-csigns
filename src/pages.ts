@@ -1,12 +1,14 @@
 
 import { html, StatusError } from "itty-router";
 import { form, Node, redirect, tag } from "webutils";
+import { createRouterHtml } from "webutils/router";
 
-import * as schema from "./schema";
-import { createSetUser, RequestUser, routerHtml } from "./context";
 import { X_OPTIONS } from "./index";
-import { checkRole } from "./utils";
+import * as schema from "./schema";
+import { Args, RequestBase, setUser } from "./context";
 import { filesHandler, loginForm, registerForm } from "./apis";
+
+export const router = createRouterHtml<RequestBase, Args>();
 
 interface Details {
 	title?: string;
@@ -59,28 +61,28 @@ function Page(details: Details, ...children: Node[]): Response {
 					tag("div", { "id": "links", "class": "two-thirds offset-by-two column" },
 						tag("a", { "href": "/" }, "Home"),
 						tag("a", { "href": "/portfolio" }, "Portfolio"),
-						tag("a", { "href": "/browse/printing" }, "Screen Printing"),
-						tag("a", { "href": "/browse/vinyl" }, "Vinyl Graphics"),
-						tag("a", { "href": "/browse/supplies" }, "Graphic Supplies"),
 						tag("a", { "href": "/contact" }, "Contact"),
 						tag("a", { "href": "/store" }, "Store"),
 						tag("a", { "href": "/cart" }, "Cart"),
 						tag("a", { "href": "/account/dashboard" }, "Account"),
 					),
 				),
-				tag("hr", {}),
+				tag("hr"),
 				...children,
-				tag("hr", {}),
+				tag("hr"),
 				tag("div", { "id": "footer" },
 					tag("p", {}, "Copyright &copy; " + new Date().getFullYear() + " Commercial Signs, Inc"),
-					tag("p", {}, "Site built by Seth Cooper"),
+					tag("p", {}, "Site built by ", tag("a", {
+						"href": "https://sethicus.com",
+						"target": "_blank"
+					}, "Seth Cooper")),
 				),
 			),
 		),
 	));
 }
 
-routerHtml.get("/", (req, env, ctx) => {
+router.get("/", (req, env, ctx) => {
 	return Page({},
 		tag("div", { "class": "row" },
 			tag("div", { "class": "one-half column" },
@@ -127,22 +129,22 @@ routerHtml.get("/", (req, env, ctx) => {
 				}),
 			),
 		),
-		tag("hr", {}),
+		tag("hr"),
 		tag("div", { "class": "row" },
 			tag("h3", {}, "Store"),
 		),
-		tag("hr", {}),
+		tag("hr"),
 		tag("div", { "class": "row" },
 			tag("h3", {}, "Contact Us"),
 			tag("div", { "class": "four offset-by-one columns" },
-				tag("p", {}, X_OPTIONS.LOCATION),
-				tag("br", {}),
+				tag("p", {}, "Location: " + X_OPTIONS.LOCATION),
+				tag("br"),
 				tag("p", {}, "Open: " + X_OPTIONS.HOURS_OPEN),
 				tag("p", {}, "Closed: " + X_OPTIONS.HOURS_CLOSED),
-				tag("br", {}),
+				tag("br"),
 				tag("p", {}, "Email: " + X_OPTIONS.EMAIL),
-				tag("p", {}, X_OPTIONS.PHONE1),
-				tag("p", {}, X_OPTIONS.PHONE2),
+				tag("p", {}, "Phone: " + X_OPTIONS.PHONE1),
+				tag("p", {}, "Phone: " + X_OPTIONS.PHONE2),
 			),
 			tag("div", { "class": "one-half column" },
 				tag("iframe", {
@@ -150,7 +152,7 @@ routerHtml.get("/", (req, env, ctx) => {
 						"?bbox=-97.59875178337099%2C38.82658007210377%2C-97.59606957435608%2C38.82802603806392&amp;amp;layer=mapnik",
 					"style": "width: 100%; height: 240px; border: 1px solid black",
 				}),
-				tag("br", {}),
+				tag("br"),
 				tag("small", {},
 					tag("a", { "href": "https://www.openstreetmap.org/?#map=19/38.827303/-97.597411" }, "View Larger Map")
 				),
@@ -159,19 +161,19 @@ routerHtml.get("/", (req, env, ctx) => {
 	);
 });
 
-routerHtml.get("/portfolio", (req, env, ctx) => {
+router.get("/portfolio", (req, env, ctx) => {
 	return Page({
 		title: "Portfolio",
-		url: "portfolio",
+		url: "/portfolio",
 	},
 		tag("div", { "id": "photos" }),
 	);
 });
 
-routerHtml.get("/browse/printing", (req, env, ctx) => {
+router.get("/browse/printing", (req, env, ctx) => {
 	return Page({
 		title: "Screen Printing",
-		url: "browse/printing",
+		url: "/browse/printing",
 	},
 		tag("h2", {}, "Screen", tag("b", {}, "Printing")),
 		tag("div", { "class": "row u-text-center" },
@@ -192,10 +194,10 @@ routerHtml.get("/browse/printing", (req, env, ctx) => {
 	);
 });
 
-routerHtml.get("/browse/vinyl", (req, env, ctx) => {
+router.get("/browse/vinyl", (req, env, ctx) => {
 	return Page({
 		title: "Vinyl Graphics",
-		url: "browse/vinyl",
+		url: "/browse/vinyl",
 	},
 		tag("h2", {}, "Vinyl", tag("b", {}, "Graphics")),
 		tag("div", { "class": "row u-text-center" },
@@ -205,10 +207,10 @@ routerHtml.get("/browse/vinyl", (req, env, ctx) => {
 	);
 });
 
-routerHtml.get("/browse/supplies", (req, env, ctx) => {
+router.get("/browse/supplies", (req, env, ctx) => {
 	return Page({
 		title: "Graphic Supplies",
-		url: "browse/supplies",
+		url: "/browse/supplies",
 	},
 		tag("h2", {}, "Graphic", tag("b", {}, "Supplies")),
 		tag("div", { "class": "row u-text-center" },
@@ -218,10 +220,10 @@ routerHtml.get("/browse/supplies", (req, env, ctx) => {
 	);
 });
 
-routerHtml.get("/contact", (req, env, ctx) => {
+router.get("/contact", (req, env, ctx) => {
 	return Page({
 		title: "Contact Us",
-		url: "contact",
+		url: "/contact",
 	},
 		tag("div", { "class": "row" },
 			form({
@@ -284,23 +286,23 @@ routerHtml.get("/contact", (req, env, ctx) => {
 	);
 });
 
-routerHtml.get("/store", (req, env, ctx) => {
+router.get("/store", (req, env, ctx) => {
 	return Page({
 		title: "Store",
-		url: "store",
+		url: "/store",
 	});
 });
 
-routerHtml.get("/cart", (req, env, ctx) => {
+router.get("/cart", (req, env, ctx) => {
 	return Page({
 		title: "Cart",
-		url: "cart",
+		url: "/cart",
 	});
 });
 
-routerHtml.get("/account", (req, env, ctx) => redirect("/account/dashboard"));
+router.get("/account", (req, env, ctx) => redirect("/account/dashboard"));
 
-routerHtml.get("/account/login", (req, env, ctx) => {
+router.get("/account/login", (req, env, ctx) => {
 	return Page({ title: "Login" },
 		tag("div", { "class": "u-text-center-only" },
 			tag("h1", {}, "Login"),
@@ -310,7 +312,7 @@ routerHtml.get("/account/login", (req, env, ctx) => {
 	);
 });
 
-routerHtml.get("/account/register", (req, env, ctx) => {
+router.get("/account/register", (req, env, ctx) => {
 	return Page({ title: "Register" },
 		tag("div", { "class": "u-text-center-only" },
 			tag("h1", {}, "Register"),
@@ -320,9 +322,9 @@ routerHtml.get("/account/register", (req, env, ctx) => {
 	);
 });
 
-routerHtml.get<RequestUser>(
+router.get(
 	"/account/dashboard",
-	createSetUser(() => redirect("/account/login")),
+	setUser(() => redirect("/account/login")),
 	(req, env, ctx) => {
 		return Page({ title: "Account" },
 			tag("h1", {}, "Account Dashboard"),
@@ -330,13 +332,13 @@ routerHtml.get<RequestUser>(
 	}
 );
 
-routerHtml.get<RequestUser>(
+router.get(
 	"/account/admin",
-	createSetUser(() => {
+	setUser(() => {
 		throw new StatusError(404);
 	}),
 	(req, env, ctx) => {
-		if (checkRole(req.user, schema.Role.Admin)) {
+		if (req.user.role === schema.Role.Admin) {
 			// Show admin dashboard
 			return Page({ title: "Dashboard" },
 				tag("h1", {}, "Admin Dashboard"),

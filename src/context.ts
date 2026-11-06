@@ -1,18 +1,14 @@
 
-import { IRequest, RequestHandler } from "itty-router";
+import { IRequestStrict, RequestHandler } from "itty-router";
 import { drizzle, DrizzleD1Database } from "drizzle-orm/d1";
 import * as d from "drizzle-orm";
 import { Uuid, getCookie, reply } from "webutils";
-import { createRouterApi, createRouterHtml } from "webutils/router";
 import { createHandlers } from "webutils/handler";
 
-import * as schema from "./schema";
 import { X_OPTIONS } from "./index";
+import * as schema from "./schema";
 
-//
-// Environment arguments
-//
-
+/** Cloudflare worker bindings */
 export interface Bindings {
 	DB: D1Database;
 	IMAGES: R2Bucket;
@@ -34,37 +30,21 @@ export type Db = DrizzleD1Database<typeof schema>;
 // Request types
 //
 
-export type RequestBase = IRequest;
-/** After setDb: `db` is guaranteed. */
+export type RequestBase = IRequestStrict;
 export type RequestDb = RequestBase & {
 	db: Db;
 }
-/** After setUser: `db` and `user` are both guaranteed. */
 export type RequestUser = RequestDb & {
 	user: schema.User;
 }
 
 //
-// Routers
-//
-
-export const routerHtml = createRouterHtml<RequestBase, Args>();
-export const routerApi = createRouterApi<RequestBase, Args>();
-
-//
 // Handlers
 //
 
-export const { handler, op } = createHandlers<RequestBase, [Bindings, ExecutionContext]>({
+export const { handler, op } = createHandlers<RequestBase, Args>({
 	getDb: (req, env) => (req as any).db ?? drizzle(env.DB),
 });
-
-/** Builds a middleware that attaches `req.db`. Never rejects. */
-export function createSetDb<A extends AnyArgs = Args>(): RequestHandler<RequestBase, A> {
-	return (req, ...args) => {
-		req.db ??= drizzle(args[0].DB);
-	};
-}
 
 /** Runs when a middleware rejects. Receives the same arguments as the route. */
 export type OnError<A extends AnyArgs = Args> = (
@@ -72,16 +52,20 @@ export type OnError<A extends AnyArgs = Args> = (
 	...args: A
 ) => Response | Promise<Response>;
 
+/** Builds a middleware that attaches `req.db`. Never rejects. */
+export function setDb<A extends AnyArgs = Args>(): RequestHandler<RequestDb, A> {
+	return (req, ...args) => {
+		req.db ??= drizzle(args[0].DB);
+	};
+}
+
 /**
  * Builds a middleware that attaches `req.db` and `req.user`.
- * On any failure (no cookie, bad uuid, no matching session) it returns
- * `onError(req, ...args)`, or the default 401 when none is given. Returning a
- * Response stops the chain, so handlers registered after it can rely on
- * `user` being set.
+ * On any failure it returns `onError(req, ...args)`.
  */
-export function createSetUser<A extends AnyArgs = Args>(
+export function setUser<A extends AnyArgs = Args>(
 	onError: OnError<A> = () => reply("Unauthorized", 401),
-): RequestHandler<RequestBase, A> {
+): RequestHandler<RequestUser, A> {
 	return async (req, ...args) => {
 		req.db ??= drizzle(args[0].DB);
 
@@ -90,12 +74,8 @@ export function createSetUser<A extends AnyArgs = Args>(
 		if (!cookie.ok) return onError(req, ...args);
 
 		// Convert to uuid
-		let idSession: Uuid;
-		try {
-			idSession = Uuid.fromString(cookie.value);
-		} catch {
-			return onError(req, ...args);
-		}
+		const idSession = Uuid.fromString(cookie.value);
+		if (!idSession.ok) return onError(req, ...args);
 
 		// Get user
 		const result = await req.db
@@ -104,7 +84,7 @@ export function createSetUser<A extends AnyArgs = Args>(
 			.innerJoin(schema.sessions, d.eq(schema.users.id, schema.sessions.userId))
 			.where(d.eq(
 				schema.sessions.id,
-				Buffer.from(idSession.toBytes()),
+				Buffer.from(idSession.value.toBytes()),
 			))
 			.limit(1)
 			.get();
@@ -113,7 +93,3 @@ export function createSetUser<A extends AnyArgs = Args>(
 		req.user = result;
 	};
 }
-
-/** Ready-made versions for the default (env, ctx) arguments. */
-export const setDb = createSetDb();
-export const setUser = createSetUser();

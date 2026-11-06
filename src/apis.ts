@@ -1,18 +1,21 @@
 
+import { AutoRouter } from "itty-router";
 import * as d from "drizzle-orm";
-import { Uuid, defineForm, hashPassword, isAsciiOrSpace, isEmail, reply, verifyPassword } from "webutils";
+import { Uuid, defineForm, hashPassword, isEmail, reply, verifyPassword } from "webutils";
 
+import { X_OPTIONS } from "./index";
 import { adminOnly, checkRole } from "./utils";
 import * as schema from "./schema";
-import { handler, RequestDb, routerApi, setDb, setUser } from "./context";
-import { X_OPTIONS } from "./index";
+import { handler, RequestDb, setDb, setUser } from "./context";
+
+export const router = AutoRouter({ base: "/api/v1/" });
 
 /*
  * File system. Quick query instead of directly to r2 bucket
  */
 
 // Files
-export const filesHandler = handler(routerApi, "/api/v1/files", {
+export const filesHandler = handler(router, "/files", {
 	table: schema.files,
 	list: {
 		before: [setUser, adminOnly],
@@ -21,7 +24,7 @@ export const filesHandler = handler(routerApi, "/api/v1/files", {
 	create: {
 		before: [setUser, adminOnly],
 		handler: async (req, env, ctx) => {
-			if (!checkRole(req.user, schema.Role.Admin)) {
+			if (req.user.role !== schema.Role.Admin) {
 				return reply("Unauthorized", 403);
 			}
 
@@ -119,7 +122,7 @@ export const filesHandler = handler(routerApi, "/api/v1/files", {
 				.insert(schema.files)
 				.values({
 					id: id.toBytes(),
-					userId: Uuid.fromBytes(req.user.id).toBytes(),
+					userId: req.user.id,
 					size,
 					hash,
 					scope,
@@ -142,22 +145,18 @@ export const filesHandler = handler(routerApi, "/api/v1/files", {
 				return reply("Unauthorized", 403);
 			}
 
-			let id;
-			try {
-				id = Uuid.fromString(req.params["id"]);
-			} catch {
-				return reply("Invalid required param, id", 400);
-			}
+			let idFile = Uuid.fromString(req.params["id"]);
+			if (!idFile.ok) return reply("Invalid required param, id", 400);
 
 			// delete from r2
-			await env.IMAGES.delete(id.toString());
+			await env.IMAGES.delete(idFile.value.toString());
 
 			// delete from d1
 			const result = await req.db
 				.delete(schema.files)
 				.where(d.eq(
 					schema.files.id,
-					Buffer.from(id.toBytes()),
+					Buffer.from(idFile.value.toBytes()),
 				))
 				.run();
 			if (!result.success) return reply("Error deleting file", 500);
@@ -172,7 +171,7 @@ export const filesHandler = handler(routerApi, "/api/v1/files", {
  */
 
 // Users
-handler(routerApi, "/api/v1/users", {
+handler(router, "/users", {
 	table: schema.users,
 	list: {
 		before: [setUser, adminOnly],
@@ -197,7 +196,7 @@ handler(routerApi, "/api/v1/users", {
 });
 // create
 export const registerForm = defineForm({
-	href: "/api/v1/users/register",
+	href: "/users/register",
 	method: "POST",
 	fields: {
 		name: { type: "text", placeholder: "John Smith" },
@@ -206,7 +205,7 @@ export const registerForm = defineForm({
 		password: { type: "password", placeholder: "Password" },
 	},
 });
-routerApi.post<RequestDb>(registerForm.href, setDb, async (req, env, ctx) => {
+router.post(registerForm.href, setDb(), async (req, env, ctx) => {
 	const result = await registerForm.parseRequest(req);
 	if (!result.ok) return reply(result.error, 400);
 
@@ -248,7 +247,7 @@ routerApi.post<RequestDb>(registerForm.href, setDb, async (req, env, ctx) => {
 });
 
 // Sessions
-handler(routerApi, "/api/v1/sessions", {
+handler(router, "/sessions", {
 	table: schema.sessions,
 	list: {
 		before: [setUser, adminOnly],
@@ -269,14 +268,14 @@ handler(routerApi, "/api/v1/sessions", {
 });
 // create
 export const loginForm = defineForm({
-	href: "/api/v1/users/login",
+	href: "/users/login",
 	method: "POST",
 	fields: {
 		email: { type: "email", placeholder: "john@smith.com" },
 		password: { type: "password", placeholder: "Password" },
 	},
 });
-routerApi.post<RequestDb>(loginForm.href, setDb, async (req, env, ctx) => {
+router.post<RequestDb>(loginForm.href, setDb, async (req, env, ctx) => {
 	const result2 = await loginForm.parseRequest(req);
 	if (!result2.ok) return reply(result2.error, 400);
 

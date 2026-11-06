@@ -1,10 +1,8 @@
 
-import { ownsPath } from "webutils/router";
-import { errorPage, reply } from "webutils";
+import { AutoRouter } from "itty-router";
 
-import { routerApi, routerHtml } from "./context";
-import "./pages";
-import "./apis";
+import { router as pagesRouter } from "./pages";
+import { router as apisRouter } from "./apis";
 
 export const X_OPTIONS = {
 	// urls
@@ -33,22 +31,10 @@ export const X_OPTIONS = {
 	PHOTO_SUPPLIES: "/images/supplies.png",
 };
 
+const router = AutoRouter();
+router.all("/*", pagesRouter.fetch);
+router.all("/api/v1/*", apisRouter.fetch);
+
 export default {
-	async fetch(req, env, ctx) {
-		// First router that has a route for this path wins. Unmatched paths go to the
-		// HTML router, so they get the HTML 404 page.
-		const api = !ownsPath(routerHtml, req) && ownsPath(routerApi, req);
-		try {
-			return await (api ? routerApi : routerHtml).fetch(req, env, ctx);
-		} catch (err) {
-			console.error(err);
-			if (api) return reply("Internal server error", 500);
-			try {
-				return errorPage(500, req);
-			} catch (err2) {
-				console.error(err2);
-				return new Response("Internal server error", { status: 500 });
-			}
-		}
-	},
+	...router
 } satisfies ExportedHandler<Env>;
